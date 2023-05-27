@@ -8,8 +8,8 @@ const refs = {
 
 const newsService = new NewsService();
 const loadMoreBtn = new LoadMoreBtn({
-    selector: "#loadMore",
-    isHidden: true
+  selector: "#loadMore",
+  isHidden: true,
 });
 
 refs.form.addEventListener("submit", onSubmit);
@@ -24,7 +24,7 @@ function onSubmit(event) {
   else {
     newsService.searchQuery = value;
     newsService.resetPage();
-    
+
     loadMoreBtn.show();
     clearNewsList();
 
@@ -32,9 +32,53 @@ function onSubmit(event) {
   }
 }
 
-function fetchArticles() {
-    loadMoreBtn.disable();
-  return getArticlesMarkUp().then(() => loadMoreBtn.enable());
+async function fetchArticles() {
+  loadMoreBtn.disable();
+
+  try {
+    const markup = await getArticlesMarkUp();
+    if(markup === undefined) throw new Error("No data");
+    updateNewsList(markup);
+  } catch (err) {
+    onError(err)
+  };
+  loadMoreBtn.enable();
+}
+
+async function getArticlesMarkUp() {
+  try {
+    const articles = await newsService.getNews();
+
+    if (!articles) {
+      loadMoreBtn.hide();
+      return "";
+    }
+    if (articles.length === 0) throw new Error("No data");
+
+    return articles.reduce(
+      (markup, article) => markup + createMarkup(article),
+      ""
+    );
+  } catch (err) {
+    onError(err);
+  }
+
+  // return newsService
+  // .getNews()
+  // .then((articles) => {
+  // if (!articles) {
+  //   loadMoreBtn.hide();
+  //   return '';
+  // }
+  //   if (articles.length === 0) throw new Error("No data");
+
+  //   return articles.reduce(
+  //     (markup, article) => markup + createMarkup(article),
+  //     ""
+  //   );
+  // })
+  // .then(updateNewsList)
+  // .catch(onError);
 }
 
 function createMarkup({ title, author, description, url, urlToImage }) {
@@ -51,28 +95,12 @@ function createMarkup({ title, author, description, url, urlToImage }) {
   </div>`;
 }
 
-function getArticlesMarkUp() {
-    
-    return newsService
-    .getNews()
-    .then((articles) => {
-      if (articles.length === 0) throw new Error("No data");
-
-      return articles.reduce(
-        (markup, article) => markup + createMarkup(article),
-        ""
-      );
-    })
-    .then(updateNewsList)
-    .catch(onError);
-}
-
 function updateNewsList(markup) {
   refs.newsWrapper.insertAdjacentHTML("beforeend", markup);
 }
 
 function onError(err) {
-    loadMoreBtn.hide();
+  loadMoreBtn.hide();
   console.error(err);
   refs.newsWrapper.innerHTML = "<p>Not found!</p>";
 }
@@ -80,3 +108,15 @@ function onError(err) {
 function clearNewsList() {
   refs.newsWrapper.innerHTML = "";
 }
+
+
+// ! Infinite scroll
+// function handleScroll() {
+//   const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+
+//   if (scrollTop + clientHeight >= scrollHeight - 5) {
+//     fetchArticles();
+//   }
+// }
+
+// window.addEventListener("scroll", handleScroll);
